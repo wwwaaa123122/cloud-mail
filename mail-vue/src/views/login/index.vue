@@ -47,6 +47,9 @@
           <el-button class="btn" v-if="settingStore.settings.linuxdoSwitch"  style="margin-top: 10px"  @click="linuxDoLogin">
             <el-avatar src="/image/linuxdo.webp" :size="18" style="margin-right: 10px" />LinuxDo
           </el-button>
+          <el-button class="btn" v-if="settingStore.settings.githubSwitch"  style="margin-top: 10px"  @click="githubLogin">
+            <Icon icon="mingcute:github-line" :size="18" style="margin-right: 10px" />GitHub
+          </el-button>
         </div>
         <div v-show="show !== 'login'">
           <el-input class="email-input" v-model="registerForm.email" type="text" :placeholder="$t('emailAccount')"
@@ -96,6 +99,9 @@
           </el-button>
           <el-button v-if="settingStore.settings.linuxdoSwitch" class="btn" style="margin-top: 10px"  @click="linuxDoLogin">
             <el-avatar src="/image/linuxdo.webp" :size="18" style="margin-right: 10px" />LinuxDo
+          </el-button>
+          <el-button v-if="settingStore.settings.githubSwitch" class="btn" style="margin-top: 10px"  @click="githubLogin">
+            <Icon icon="mingcute:github-line" :size="18" style="margin-right: 10px" />GitHub
           </el-button>
         </div>
         <template v-if="settingStore.settings.register === 0">
@@ -161,7 +167,7 @@ import {cvtR2Url} from "@/utils/convert.js";
 import {loginUserInfo} from "@/request/my.js";
 import {permsToRouter} from "@/perm/perm.js";
 import {useI18n} from "vue-i18n";
-import {oauthBindUser, oauthLinuxDoLogin} from "@/request/ouath.js";
+import {oauthBindUser, oauthLinuxDoLogin, oauthGithubLogin} from "@/request/ouath.js";
 
 const {t} = useI18n();
 const accountStore = useAccountStore();
@@ -257,17 +263,61 @@ function linuxDoLogin() {
       `https://connect.linux.do/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid+profile+email`
 }
 
+function githubLogin() {
+  const clientId = settingStore.settings.githubClientId
+  const redirectUri = encodeURIComponent(settingStore.settings.githubCallbackUrl)
+  window.location.href =
+      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email&state=github`
+}
+
 linuxDoGetUser();
+githubGetUser();
 
 async function linuxDoGetUser() {
 
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code')
+  const state = params.get('state')
 
-  if (code) {
+  if (code && state !== 'github') {
 
     oauthLoading.value = true
     oauthLinuxDoLogin(code).then(data => {
+
+      bindForm.oauthUserId = data.userInfo.oauthUserId;
+
+      if (!data.token) {
+        showBindForm.value = true
+        oauthLoading.value = false
+        ElMessage({
+          message: '请注册绑定一个邮箱',
+          type: 'warning',
+          duration: 4000,
+          plain: true,
+        })
+        return;
+      }
+
+      saveToken(data.token);
+    }).catch(() => {
+      oauthLoading.value = false
+    })
+  }
+
+  const cleanUrl = window.location.origin + window.location.pathname
+  window.history.replaceState({}, '', cleanUrl)
+}
+
+async function githubGetUser() {
+
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('code')
+  const state = params.get('state')
+
+  if (code && state === 'github') {
+
+    oauthLoading.value = true
+    oauthGithubLogin(code).then(data => {
 
       bindForm.oauthUserId = data.userInfo.oauthUserId;
 

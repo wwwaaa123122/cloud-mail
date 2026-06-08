@@ -73,6 +73,71 @@ const oauthService = {
 		userInfo.silenced = userInfo.active ? 0 : 1;
 		userInfo.trustLevel = userInfo.trust_level;
 		userInfo.avatar = userInfo.avatar_url;
+		userInfo.platform = 0;
+
+		const  oauthRow = await this.saveUser(c, userInfo);
+		const userRow = await userService.selectByIdIncludeDel(c, oauthRow.userId);
+
+		if (!userRow) {
+			return { userInfo: oauthRow, token: null }
+		}
+
+		const JwtToken = await loginService.login(c, { email: userRow.email, password: null }, true);
+		return { userInfo: oauthRow, token: JwtToken }
+	},
+
+	async githubLogin(c, params) {
+
+		const { code } = params;
+
+		let token = '';
+		let userInfo = {}
+
+		const reqParams = new URLSearchParams()
+		reqParams.append('client_id', c.env.github_client_id)
+		reqParams.append('client_secret', c.env.github_client_secret)
+		reqParams.append('code', code)
+		reqParams.append('redirect_uri', c.env.github_callback_url)
+
+		const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+			method: "POST",
+			headers: { 
+				"Content-Type": "application/x-www-form-urlencoded",
+				"Accept": "application/json"
+			},
+			body: reqParams.toString()
+		})
+
+		if (!tokenRes.ok) {
+			throw new BizError(tokenRes.statusText)
+		}
+
+		token = await tokenRes.json()
+
+		if (token.error) {
+			throw new BizError(token.error_description || token.error)
+		}
+
+		const userRes = await fetch('https://api.github.com/user', {
+			headers: {
+				Authorization: 'Bearer ' + token.access_token,
+				'User-Agent': 'Cloud-Mail'
+			}
+		});
+
+		if (!userRes.ok) {
+			throw new BizError(userRes.statusText)
+		}
+
+		userInfo = await userRes.json();
+
+		userInfo.oauthUserId = String(userInfo.id);
+		userInfo.active = 0;
+		userInfo.silenced = 0;
+		userInfo.trustLevel = 0;
+		userInfo.avatar = userInfo.avatar_url;
+		userInfo.name = userInfo.name || userInfo.login;
+		userInfo.platform = 1;
 
 		const  oauthRow = await this.saveUser(c, userInfo);
 		const userRow = await userService.selectByIdIncludeDel(c, oauthRow.userId);
