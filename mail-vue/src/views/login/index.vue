@@ -270,16 +270,43 @@ function githubLogin() {
       `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email&state=github`
 }
 
-linuxDoGetUser();
-githubGetUser();
+oauthGetUser();
 
-async function linuxDoGetUser() {
+async function oauthGetUser() {
 
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code')
   const state = params.get('state')
 
-  if (code && state !== 'github') {
+  if (!code) return
+
+  const cleanUrl = window.location.origin + window.location.pathname
+  window.history.replaceState({}, '', cleanUrl)
+
+  if (state === 'github') {
+
+    oauthLoading.value = true
+    oauthGithubLogin(code).then(data => {
+
+      bindForm.oauthUserId = data.userInfo.oauthUserId;
+
+      if (!data.token) {
+        showBindForm.value = true
+        oauthLoading.value = false
+        ElMessage({
+          message: '请注册绑定一个邮箱',
+          type: 'warning',
+          duration: 4000,
+          plain: true,
+        })
+        return;
+      }
+
+      saveToken(data.token);
+    }).catch(() => {
+      oauthLoading.value = false
+    })
+  } else {
 
     oauthLoading.value = true
     oauthLinuxDoLogin(code).then(data => {
@@ -303,44 +330,6 @@ async function linuxDoGetUser() {
       oauthLoading.value = false
     })
   }
-
-  const cleanUrl = window.location.origin + window.location.pathname
-  window.history.replaceState({}, '', cleanUrl)
-}
-
-async function githubGetUser() {
-
-  const params = new URLSearchParams(window.location.search)
-  const code = params.get('code')
-  const state = params.get('state')
-
-  if (code && state === 'github') {
-
-    oauthLoading.value = true
-    oauthGithubLogin(code).then(data => {
-
-      bindForm.oauthUserId = data.userInfo.oauthUserId;
-
-      if (!data.token) {
-        showBindForm.value = true
-        oauthLoading.value = false
-        ElMessage({
-          message: '请注册绑定一个邮箱',
-          type: 'warning',
-          duration: 4000,
-          plain: true,
-        })
-        return;
-      }
-
-      saveToken(data.token);
-    }).catch(() => {
-      oauthLoading.value = false
-    })
-  }
-
-  const cleanUrl = window.location.origin + window.location.pathname
-  window.history.replaceState({}, '', cleanUrl)
 }
 
 function bind() {
