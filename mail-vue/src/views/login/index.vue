@@ -303,8 +303,14 @@ async function oauthGetUser() {
       }
 
       saveToken(data.token);
-    }).catch(() => {
+    }).catch((e) => {
       oauthLoading.value = false
+      ElMessage({
+        message: 'GitHub登录失败: ' + (e.message || e.data?.message || '未知错误'),
+        type: 'error',
+        duration: 5000,
+        plain: true,
+      })
     })
   } else {
 
