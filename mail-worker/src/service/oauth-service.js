@@ -98,6 +98,7 @@ const oauthService = {
 		reqParams.append('client_secret', c.env.github_client_secret)
 		reqParams.append('code', code)
 		reqParams.append('redirect_uri', c.env.github_callback_url)
+		reqParams.append('grant_type', 'authorization_code')
 
 		const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
 			method: "POST",
